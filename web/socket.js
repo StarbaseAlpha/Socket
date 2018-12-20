@@ -1,31 +1,34 @@
 'use strict';
 
-function Socket(server,stateHandler,messageHandler,errorHandler) {
+function Socket(server) {
 
   let ws = null;
   let tries = 0;
   let closed = false;
 
-  let ERROR = (e) => {
+  let stateHandler;
+  let messageHandler;
+  let errorHandler;
+
+  const ERROR = (e) => {
     if (errorHandler && typeof errorHandler === 'function') {
       errorHandler(e);
     }
     console.error(e);
   };
 
-  const stateChange = function(state) {
+  const stateChange = (state) => {
     if (stateHandler && typeof stateHandler === 'function') {
       stateHandler(state);
     }
   };
 
-  const onopen = function(e) {
+  const onopen = (e) => {
     stateChange('connected');
     closed = false;
-    tries = 0;
   };
 
-  const connect = function() {
+  const connect = () => {
     if (!ws || ws.readyState !== 1) {
       if (server) {
         ws = new WebSocket(server);
@@ -34,30 +37,21 @@ function Socket(server,stateHandler,messageHandler,errorHandler) {
         ws.onclose = onclose;
         ws.onerror = onerror;
       } else {
-        ERROR('No Server Provided.');
+        ERROR('No server provided.');
       }
     } else {
-      ERROR('Already Connected.');
+      ERROR('Already connected.');
     }
   };
 
-  const onclose = function(e) {
+  const onclose = (e) => {
     stateChange('disconnected');
     if (!closed) {
       ERROR('disconnected.');
-      if (tries < 3) {
-        tries++;
-        stateChange('reconnecting');
-        setTimeout(connect,3000);
-      } else {
-        stateChange('disconnected');
-        ERROR('Failed to reconnect 3 times.');
-        closed = true;
-      }
     }
   };
 
-  const onmessage = function(msg) {
+  const onmessage = (msg) => {
     if (messageHandler && typeof messageHandler === 'function') {
       try {
         msg = JSON.parse(msg.data);
@@ -66,7 +60,7 @@ function Socket(server,stateHandler,messageHandler,errorHandler) {
     }
   };
 
-  const onerror = function(err) {
+  const onerror = (err) => {
     if (errorHandler && typeof errorHandler === 'function') {
       errorHandler(err);
     }
@@ -74,17 +68,17 @@ function Socket(server,stateHandler,messageHandler,errorHandler) {
 
   let socket = {};
 
-  socket.getState = function() {
+  socket.getState = () => {
     if (!ws || ws.readyState !== 1) {
       return false;
     } else {
       return true;
     }
-  }
+  };
 
   socket.connect = socket.open = connect;
 
-  socket.send = (message)=>{
+  socket.send = (message) => {
     if (ws && ws.readyState === 1) {
       ws.send(JSON.stringify(message),err=>{
         if (err) {
@@ -98,7 +92,7 @@ function Socket(server,stateHandler,messageHandler,errorHandler) {
     }
   };
 
-  socket.close = function() {
+  socket.close = () => {
     closed = true;
     if (ws && ws.readyState === 1) {
       ws.close();
@@ -108,25 +102,19 @@ function Socket(server,stateHandler,messageHandler,errorHandler) {
   };
 
   socket.onMessage = (handler)=>{
-    if (handler && typeof handler === 'function') {
-      messageHandler = handler;
-    }
+    messageHandler = handler;
   };
 
-  socket.onState = (handler)=>{
-    if (handler && typeof handler === 'function') {
-      stateHandler = handler;
-    }
+  socket.onState = (cb)=>{
+    stateHandler = cb;
   };
 
-  socket.onError = (handler)=>{
-    if (handler && typeof handler === 'function') {
-      errorHandler = handler;
-    }
+  socket.onError = (cb)=>{
+    errorHandler = cb;
   };
 
-  socket.setServer = (newserver)=>{
-    server = newserver;
+  socket.setServer = (socketURL)=>{
+    server = socketURL;
   };
 
   return socket;
