@@ -2,7 +2,11 @@
 
 const WebSocket = require('ws');
 
-function Socket(server) {
+function Socket(server=null, options={}) {
+
+  if (!options || typeof options !== 'object') {
+    options = {};
+  }
 
   const wss = new WebSocket.Server({server});
 
@@ -10,25 +14,25 @@ function Socket(server) {
   let onMessage;
   let onState;
 
-  let errorHandler = (client,err) => {
+  const errorHandler = (client,err) => {
     if (onError && typeof onError === 'function') {
       onError(client,err);
     }
   };
 
-  let messageHandler = (client,message) => {
+  const messageHandler = (client,message) => {
     if (onMessage && typeof onMessage === 'function') {
       onMessage(client,message);
     }
   };
 
-  let stateHandler = (client,state) => {
+  const stateHandler = (client,state) => {
     if (onState && typeof onState === 'function') {
       onState(client,state);
     }
   };
 
-  setInterval(()=>{
+  let heartbeat = setInterval(() => {
     wss.clients.forEach(client=>{
       if (!client.isAlive) {
         return null;
@@ -39,24 +43,17 @@ function Socket(server) {
     });
   },29000);
 
-  wss.broadcast = (msg) => {
-    let message = JSON.stringify(msg);
-    wss.clients.forEach(sock=>{
-      sock.send(message);
-    });
-  };
-
-  wss.on('connection',(client,req)=>{
+  wss.on('connection',(client,req) => {
     client.isAlive = true;
     client.url = req.url;
-    client.path = ((req.url.split('?'))[0]) || '/';
+    client.path = client.path || ((req.url.split('?'))[0]) || '/';
       if (messageHandler && typeof messageHandler === 'function') {
         if (client) {
-          stateHandler(client,'connected');
+          stateHandler(client,'connected', req);
         }
       }
 
-      client.on('close',(e)=>{
+      client.on('close',(e) => {
         if (stateHandler && typeof stateHandler === 'function') {
           if (client) {  
             stateHandler(client,'disconnected');
@@ -64,13 +61,13 @@ function Socket(server) {
         }
       });
 
-      client.on('error',(e)=>{
+      client.on('error',(e) => {
         if (errorHandler && typeof errorHandler === 'function') {
           errorHandler(client,e.toString());
         }
       });
 
-      client.on('message',(message)=>{
+      client.on('message',(message) => {
         if (messageHandler && typeof messageHandler === 'function') {
           try {
             message = JSON.parse(message);
@@ -84,7 +81,7 @@ function Socket(server) {
       client.oldsend = client.send;
       client.send = (msg) => {
         if (client.readyState === 1) {
-          client.oldsend(JSON.stringify(msg),err=>{
+          client.oldsend(JSON.stringify(msg),err => {
             if (err) {
               errorHandler(client,err);
             }
@@ -92,31 +89,24 @@ function Socket(server) {
         }
       };
 
-      client.on('pong',()=>{
-        if (client) {
+      client.on('pong',() => {
+        if (client && client.readyState === 1) {
           client.isAlive = true;
         }
       });
 
-
   });
 
-  wss.onState = function(callback) {
-    if (callback && typeof callback === 'function') {
-      onState = callback;
-    }
+  wss.onState = (cb) => {
+    onState = cb;
   };
 
-  wss.onMessage = function(callback) {
-    if (callback && typeof callback === 'function') {
-      onMessage = callback;
-    }
+  wss.onMessage = (cb) => {
+    onMessage = cb;
   };
 
-  wss.onError = function(callback) {
-    if (callback && typeof callback === 'function') {
-      onError = callback;
-    }
+  wss.onError = (cb) => {
+    onError = cb;
   };
 
   return wss;
