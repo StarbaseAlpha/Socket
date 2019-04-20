@@ -26,9 +26,9 @@ function Socket(server=null, options={}) {
     }
   };
 
-  const stateHandler = (client,state) => {
+  const stateHandler = (client,state,req) => {
     if (onState && typeof onState === 'function') {
-      onState(client,state);
+      onState(client,state,req);
     }
   };
 
@@ -41,59 +41,79 @@ function Socket(server=null, options={}) {
         client.ping();
       }
     });
-  },29000);
+  },1000 * parseInt(options.heartbeat||20));
+
+  let ids = 0;
 
   wss.on('connection',(client,req) => {
+    ids = ids++;
+    client.id = ids;
+    client.reqTokens = 0;
+    client.newTokens = 0;
     client.isAlive = true;
     client.url = req.url;
+
+    client.oldsend = client.send;
+    client.send = (msg) => {
+      if (client.readyState === 1) {
+        client.oldsend(JSON.stringify(msg),err => {
+          if (err) {
+            errorHandler(client,err);
+          }
+        });
+      }
+    };
+
     client.path = client.path || ((req.url.split('?'))[0]) || '/';
-      if (messageHandler && typeof messageHandler === 'function') {
-        if (client) {
-          stateHandler(client,'connected', req);
+    if (messageHandler && typeof messageHandler === 'function') {
+      if (client) {
+        stateHandler(client,'connected', req);
+      }
+    }
+
+    client.on('close',(e) => {
+      if (stateHandler && typeof stateHandler === 'function') {
+        if (client) {  
+          stateHandler(client,'disconnected', req);
         }
       }
+    });
 
-      client.on('close',(e) => {
-        if (stateHandler && typeof stateHandler === 'function') {
-          if (client) {  
-            stateHandler(client,'disconnected');
-          }
-        }
-      });
+    client.on('error',(e) => {
+      if (errorHandler && typeof errorHandler === 'function') {
+        errorHandler(client,e.toString());
+      }
+    });
 
-      client.on('error',(e) => {
-        if (errorHandler && typeof errorHandler === 'function') {
-          errorHandler(client,e.toString());
+    client.on('message',(message) => {
+      if (client.newTokens <= Date.now()) {
+        client.newTokens = Date.now() + (1000 * parseInt(options.seconds||30));
+        client.reqTokens = parseInt(options.limit||30);
+      }
+      client.reqTokens--;
+      if (client.reqTokens === -1) {
+        client.send({"code":429, "error":"Too many requests."});
+        return null;
+      }
+      if (client.reqTokens < -1) {
+        client.close();
+        return null;
+      }        
+      if (messageHandler && typeof messageHandler === 'function') {
+        try {
+          message = JSON.parse(message);
+          messageHandler(client,message);
+        } catch(e) {
+          client.send(JSON.stringify({"code":400,"message":"Invalid Request Body"}));
         }
-      });
+      }
+    });
 
-      client.on('message',(message) => {
-        if (messageHandler && typeof messageHandler === 'function') {
-          try {
-            message = JSON.parse(message);
-            messageHandler(client,message);
-          } catch(e) {
-            client.send(JSON.stringify({"code":400,"message":"Invalid Request Body"}));
-          }
-        }
-      });
-
-      client.oldsend = client.send;
-      client.send = (msg) => {
-        if (client.readyState === 1) {
-          client.oldsend(JSON.stringify(msg),err => {
-            if (err) {
-              errorHandler(client,err);
-            }
-          });
-        }
-      };
-
-      client.on('pong',() => {
-        if (client && client.readyState === 1) {
-          client.isAlive = true;
-        }
-      });
+    client.on('pong',() => {
+      if (client && client.readyState === 1) {
+        client.isAlive = true;
+      }
+    });
 
   });
 
