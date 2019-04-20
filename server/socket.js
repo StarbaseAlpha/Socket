@@ -46,7 +46,7 @@ function Socket(server=null, options={}) {
   let ids = 0;
 
   wss.on('connection',(client,req) => {
-    ids = ids++;
+    ids++;
     client.id = ids;
     client.reqTokens = 0;
     client.newTokens = 0;
