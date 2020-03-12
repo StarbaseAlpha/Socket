@@ -8,7 +8,15 @@ function Socket(server=null, options={}) {
     options = {};
   }
 
-  const wss = new WebSocket.Server({server});
+  let config = {
+    "server": server
+  };
+
+  if (options.path) {
+    config.path = options.path;
+  }
+
+  const wss = new WebSocket.Server(config);
 
   let onError;
   let onMessage;
