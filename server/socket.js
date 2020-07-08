@@ -21,6 +21,8 @@ function Socket(server=null, options={}) {
   let onError;
   let onMessage;
   let onState;
+  let onConnect;
+  let onClose;
 
   const errorHandler = (client,err) => {
     if (onError && typeof onError === 'function') {
@@ -37,6 +39,18 @@ function Socket(server=null, options={}) {
   const stateHandler = (client,state,req) => {
     if (onState && typeof onState === 'function') {
       onState(client,state,req);
+    }
+  };
+
+  const connectHandler = (client, req) => {
+    if (onConnect && typeof onConnect === 'function') {
+      onConnect(client, req);
+    }
+  };
+
+  const closeHandler = (client, req) => {
+    if (onClose && typeof onClose === 'function') {
+      onClose(client, req);
     }
   };
 
@@ -73,9 +87,15 @@ function Socket(server=null, options={}) {
     };
 
     client.path = client.path || ((req.url.split('?'))[0]) || '/';
-    if (messageHandler && typeof messageHandler === 'function') {
+    if (stateHandler && typeof stateHandler === 'function') {
       if (client) {
         stateHandler(client,'connected', req);
+      }
+    }
+
+    if (connectHandler && typeof connectHandler === 'function') {
+      if (client) {
+        connectHandler(client, req);
       }
     }
 
@@ -85,6 +105,12 @@ function Socket(server=null, options={}) {
           stateHandler(client,'disconnected', req);
         }
       }
+      if (closeHandler && typeof closeHandler === 'function') {
+        if (client) {
+          closeHandler(client, req);
+        }
+      }
+
     });
 
     client.on('error',(e) => {
@@ -127,6 +153,14 @@ function Socket(server=null, options={}) {
 
   wss.onState = (cb) => {
     onState = cb;
+  };
+
+  wss.onClose = (cb) => {
+    onClose = cb;
+  };
+
+  wss.onConnect = (cb) => {
+    onConnect = cb;
   };
 
   wss.onMessage = (cb) => {
