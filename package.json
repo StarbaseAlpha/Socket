@@ -1,6 +1,6 @@
 {
   "name": "@starbase/socket",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Starbase Socket",
   "main": "index.js",
   "scripts": {
