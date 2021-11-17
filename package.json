@@ -1,6 +1,6 @@
 {
   "name": "@starbase/socket",
-  "version": "0.2.2",
+  "version": "0.2.9",
   "description": "Starbase Socket",
   "main": "index.js",
   "scripts": {
@@ -9,7 +9,7 @@
   "author": "Mike Fuller",
   "license": "MIT",
   "dependencies": {
-    "ws": "^7.3.1"
+    "ws": "latest"
   },
   "keywords": [
     "starbase",
