@@ -73,7 +73,7 @@ function Socket(server=null, options={}) {
     client.reqTokens = 0;
     client.newTokens = 0;
     client.isAlive = true;
-    client.url = req.url;
+    client.pathURL = req.url;
 
     client.oldsend = client.send;
     client.send = (msg) => {
